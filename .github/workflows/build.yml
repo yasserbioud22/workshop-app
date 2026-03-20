@@ -1,0 +1,37 @@
+name: Build APK
+
+on:
+  push:
+    branches: [ main ]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+      
+      - name: Setup Java
+        uses: actions/setup-java@v3
+        with:
+          distribution: 'temurin'
+          java-version: '17'
+          
+      - name: Setup Node.js
+        uses: actions/setup-node@v3
+        with:
+          node-version: '20'
+          
+      - name: Install web-to-apk
+        run: npm install -g web-to-apk
+        
+      - name: Build APK
+        run: |
+          mkdir -p app/src/main/assets/www
+          cp index.html app/src/main/assets/www/
+          web-to-apk build --input ./app --output ./app.apk
+          
+      - name: Upload APK
+        uses: actions/upload-artifact@v3
+        with:
+          name: workshop-app
+          path: app.apk
