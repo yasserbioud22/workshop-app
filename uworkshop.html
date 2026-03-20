@@ -1,0 +1,380 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ورشة الهواتف</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: 'Segoe UI', Tahoma, sans-serif; background: #f0f2f5; padding: 10px; }
+        .header { background: #0f3b5c; color: white; padding: 15px; text-align: center; border-radius: 15px; margin-bottom: 15px; }
+        .card { background: white; border-radius: 15px; padding: 15px; margin-bottom: 10px; box-shadow: 0 2px 5px rgba(0,0,0,0.1); }
+        .stats { display: grid; grid-template-columns: repeat(2,1fr); gap: 10px; margin-bottom: 15px; }
+        .stat-box { background: white; padding: 12px; border-radius: 12px; text-align: center; }
+        .stat-value { font-size: 20px; font-weight: bold; color: #2c7da0; }
+        .btn { background: #2c7da0; color: white; border: none; padding: 10px; border-radius: 10px; width: 100%; margin-top: 5px; cursor: pointer; }
+        input, select { width: 100%; padding: 10px; margin-bottom: 8px; border: 1px solid #ddd; border-radius: 8px; }
+        .list-item { background: white; padding: 12px; border-radius: 10px; margin-bottom: 8px; display: flex; justify-content: space-between; align-items: center; }
+        .delete { color: red; background: none; border: none; font-size: 18px; cursor: pointer; }
+        .tab-bar { position: fixed; bottom: 0; left: 0; right: 0; background: white; display: flex; justify-content: space-around; padding: 10px; border-top: 1px solid #ddd; }
+        .tab { text-align: center; cursor: pointer; padding: 5px; }
+        .tab.active { color: #2c7da0; font-weight: bold; }
+        .page { display: none; margin-bottom: 70px; }
+        .page.active { display: block; }
+        .fab { position: fixed; bottom: 70px; right: 15px; background: #2c7da0; color: white; width: 50px; height: 50px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 24px; cursor: pointer; box-shadow: 0 2px 10px rgba(0,0,0,0.2); }
+        .modal { display: none; position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.5); align-items: center; justify-content: center; }
+        .modal.active { display: flex; }
+        .modal-content { background: white; border-radius: 20px; padding: 20px; width: 90%; max-height: 80vh; overflow-y: auto; }
+        .toast { position: fixed; bottom: 100px; left: 20px; right: 20px; background: #333; color: white; padding: 10px; border-radius: 25px; text-align: center; display: none; }
+    </style>
+</head>
+<body>
+
+<div class="header">
+    📱 ورشة الهواتف<br>
+    <small>نظام محاسبي</small>
+</div>
+
+<!-- الصفحات -->
+<div id="dashboard" class="page active">
+    <div class="stats">
+        <div class="stat-box"><div>مبيعات اليوم</div><div class="stat-value" id="todaySales">0 دج</div></div>
+        <div class="stat-box"><div>صافي الربح</div><div class="stat-value" id="todayProfit">0 دج</div></div>
+        <div class="stat-box"><div>مصروفات اليوم</div><div class="stat-value" id="todayExpenses">0 دج</div></div>
+        <div class="stat-box"><div>الفواتير</div><div class="stat-value" id="todayCount">0</div></div>
+    </div>
+    <div class="card">
+        <h3>🕒 آخر الفواتير</h3>
+        <div id="recentList"></div>
+    </div>
+</div>
+
+<div id="invoices" class="page">
+    <div class="card">
+        <input type="text" id="searchInvoice" placeholder="🔍 بحث باسم العميل" onkeyup="showInvoices()">
+        <div id="invoicesList"></div>
+        <button class="btn" onclick="openInvoiceModal()">+ فاتورة جديدة</button>
+    </div>
+</div>
+
+<div id="expenses" class="page">
+    <div class="card">
+        <input type="text" id="searchExpense" placeholder="🔍 بحث" onkeyup="showExpenses()">
+        <div id="expensesList"></div>
+        <button class="btn" onclick="openExpenseModal()">+ مصروف جديد</button>
+    </div>
+</div>
+
+<div id="reports" class="page">
+    <div class="card">
+        <h3>📅 تقرير شهري</h3>
+        <input type="month" id="monthReport" onchange="showMonthlyReport()">
+        <div id="monthlyReport"></div>
+    </div>
+    <div class="card">
+        <h3>📆 تقرير يومي</h3>
+        <input type="date" id="dayReport" onchange="showDailyReport()">
+        <div id="dailyReport"></div>
+    </div>
+</div>
+
+<div id="settings" class="page">
+    <div class="card">
+        <h3>💾 النسخ الاحتياطي</h3>
+        <button class="btn" onclick="backupData()">📁 تصدير البيانات</button>
+        <input type="file" id="restoreFile" accept=".json" style="display:none">
+        <button class="btn" onclick="document.getElementById('restoreFile').click()">📂 استيراد بيانات</button>
+        <button class="btn" style="background:#c62828" onclick="deleteAll()">🗑️ مسح الكل</button>
+    </div>
+    <div class="card">
+        <h3>ℹ️ معلومات</h3>
+        <p>النسخة 1.0<br>جميع البيانات محفوظة على هاتفك</p>
+    </div>
+</div>
+
+<!-- شريط التبويب -->
+<div class="tab-bar">
+    <div class="tab active" onclick="showPage('dashboard')">📊 الرئيسية</div>
+    <div class="tab" onclick="showPage('invoices')">📝 الفواتير</div>
+    <div class="tab" onclick="showPage('expenses')">💰 المصروفات</div>
+    <div class="tab" onclick="showPage('reports')">📈 تقارير</div>
+    <div class="tab" onclick="showPage('settings')">⚙️ إعدادات</div>
+</div>
+
+<!-- زر الإضافة السريع -->
+<div class="fab" onclick="showQuickMenu()">➕</div>
+
+<!-- القائمة السريعة -->
+<div id="quickMenu" class="modal">
+    <div class="modal-content">
+        <h3>⚡ إضافة سريعة</h3>
+        <button class="btn" onclick="openInvoiceModal();closeQuickMenu()">📝 فاتورة جديدة</button>
+        <button class="btn" onclick="openExpenseModal();closeQuickMenu()">💰 مصروف جديد</button>
+        <button class="btn" style="background:#666" onclick="closeQuickMenu()">إلغاء</button>
+    </div>
+</div>
+
+<!-- نافذة إضافة فاتورة -->
+<div id="invoiceModal" class="modal">
+    <div class="modal-content">
+        <h3>➕ فاتورة جديدة</h3>
+        <input type="date" id="invDate">
+        <input type="text" id="invClient" placeholder="اسم العميل">
+        <input type="text" id="invDevice" placeholder="نوع الجهاز">
+        <select id="invService">
+            <option>تغيير بطارية</option>
+            <option>تغيير شاشة</option>
+            <option>إصلاح عطل</option>
+            <option>أخرى</option>
+        </select>
+        <input type="number" id="invAmount" placeholder="المبلغ (دج)">
+        <button class="btn" onclick="saveInvoice()">حفظ</button>
+        <button class="btn" style="background:#666" onclick="closeInvoiceModal()">إلغاء</button>
+    </div>
+</div>
+
+<!-- نافذة إضافة مصروف -->
+<div id="expenseModal" class="modal">
+    <div class="modal-content">
+        <h3>💰 مصروف جديد</h3>
+        <input type="date" id="expDate">
+        <select id="expCategory">
+            <option>إيجار</option>
+            <option>كهرباء</option>
+            <option>أدوات</option>
+            <option>قطع غيار</option>
+            <option>أخرى</option>
+        </select>
+        <input type="number" id="expAmount" placeholder="المبلغ (دج)">
+        <button class="btn" onclick="saveExpense()">حفظ</button>
+        <button class="btn" style="background:#666" onclick="closeExpenseModal()">إلغاء</button>
+    </div>
+</div>
+
+<div id="toast" class="toast"></div>
+
+<script>
+    // البيانات
+    let invoices = JSON.parse(localStorage.getItem('invoices') || '[]');
+    let expenses = JSON.parse(localStorage.getItem('expenses') || '[]');
+
+    // دوال مساعدة
+    function showToast(msg) {
+        let t = document.getElementById('toast');
+        t.innerText = msg;
+        t.style.display = 'block';
+        setTimeout(() => t.style.display = 'none', 2000);
+    }
+
+    function formatMoney(n) { return n.toLocaleString() + ' دج'; }
+    function getToday() { return new Date().toISOString().slice(0,10); }
+
+    function saveAll() {
+        localStorage.setItem('invoices', JSON.stringify(invoices));
+        localStorage.setItem('expenses', JSON.stringify(expenses));
+    }
+
+    // عرض الصفحات
+    function showPage(page) {
+        document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+        document.getElementById(page).classList.add('active');
+        document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+        event.target.closest('.tab').classList.add('active');
+        if(page === 'dashboard') updateDashboard();
+        if(page === 'invoices') showInvoices();
+        if(page === 'expenses') showExpenses();
+    }
+
+    // تحديث لوحة التحكم
+    function updateDashboard() {
+        let today = getToday();
+        let todayInvoices = invoices.filter(i => i.date === today);
+        let todayExpenses = expenses.filter(e => e.date === today);
+        
+        let sales = todayInvoices.reduce((s,i) => s + i.amount, 0);
+        let profit = sales - todayExpenses.reduce((s,e) => s + e.amount, 0);
+        
+        document.getElementById('todaySales').innerHTML = formatMoney(sales);
+        document.getElementById('todayProfit').innerHTML = formatMoney(profit);
+        document.getElementById('todayExpenses').innerHTML = formatMoney(todayExpenses.reduce((s,e) => s + e.amount, 0));
+        document.getElementById('todayCount').innerHTML = todayInvoices.length;
+        
+        let recent = [...invoices].reverse().slice(0,5);
+        document.getElementById('recentList').innerHTML = recent.length ? 
+            recent.map(i => `<div class="list-item"><div><b>${i.client || 'عميل'}</b><br><small>${i.device || ''} - ${i.amount} دج</small></div></div>`).join('') :
+            '<div>لا توجد فواتير</div>';
+    }
+
+    // عرض الفواتير
+    function showInvoices() {
+        let search = document.getElementById('searchInvoice')?.value || '';
+        let filtered = [...invoices].reverse();
+        if(search) filtered = filtered.filter(i => i.client?.includes(search));
+        
+        document.getElementById('invoicesList').innerHTML = filtered.length ?
+            filtered.map((inv, idx) => `
+                <div class="list-item">
+                    <div>
+                        <b>${inv.client || 'عميل'}</b><br>
+                        <small>${inv.device || ''} | ${inv.service || ''} | ${inv.date}</small>
+                    </div>
+                    <div>${formatMoney(inv.amount)} <button class="delete" onclick="deleteInvoice(${idx})">🗑️</button></div>
+                </div>
+            `).join('') : '<div>لا توجد فواتير</div>';
+    }
+
+    function deleteInvoice(idx) {
+        invoices.splice(idx, 1);
+        saveAll();
+        showInvoices();
+        updateDashboard();
+        showToast('تم حذف الفاتورة');
+    }
+
+    function saveInvoice() {
+        let inv = {
+            date: document.getElementById('invDate').value || getToday(),
+            client: document.getElementById('invClient').value,
+            device: document.getElementById('invDevice').value,
+            service: document.getElementById('invService').value,
+            amount: parseFloat(document.getElementById('invAmount').value) || 0
+        };
+        if(!inv.amount) { alert('أدخل المبلغ'); return; }
+        invoices.push(inv);
+        saveAll();
+        showInvoices();
+        updateDashboard();
+        closeInvoiceModal();
+        showToast('تم إضافة الفاتورة');
+    }
+
+    // عرض المصروفات
+    function showExpenses() {
+        let search = document.getElementById('searchExpense')?.value || '';
+        let filtered = [...expenses].reverse();
+        if(search) filtered = filtered.filter(e => e.category?.includes(search));
+        
+        document.getElementById('expensesList').innerHTML = filtered.length ?
+            filtered.map((exp, idx) => `
+                <div class="list-item">
+                    <div><b>${exp.category}</b><br><small>${exp.date}</small></div>
+                    <div>${formatMoney(exp.amount)} <button class="delete" onclick="deleteExpense(${idx})">🗑️</button></div>
+                </div>
+            `).join('') : '<div>لا توجد مصروفات</div>';
+    }
+
+    function deleteExpense(idx) {
+        expenses.splice(idx, 1);
+        saveAll();
+        showExpenses();
+        updateDashboard();
+        showToast('تم حذف المصروف');
+    }
+
+    function saveExpense() {
+        let exp = {
+            date: document.getElementById('expDate').value || getToday(),
+            category: document.getElementById('expCategory').value,
+            amount: parseFloat(document.getElementById('expAmount').value) || 0
+        };
+        if(!exp.amount) { alert('أدخل المبلغ'); return; }
+        expenses.push(exp);
+        saveAll();
+        showExpenses();
+        updateDashboard();
+        closeExpenseModal();
+        showToast('تم إضافة المصروف');
+    }
+
+    // التقارير
+    function showMonthlyReport() {
+        let month = document.getElementById('monthReport').value;
+        let monthInv = invoices.filter(i => i.date.startsWith(month));
+        let monthExp = expenses.filter(e => e.date.startsWith(month));
+        let sales = monthInv.reduce((s,i) => s + i.amount, 0);
+        let expTotal = monthExp.reduce((s,e) => s + e.amount, 0);
+        document.getElementById('monthlyReport').innerHTML = `
+            <div class="stats">
+                <div class="stat-box"><div>المبيعات</div><div class="stat-value">${formatMoney(sales)}</div></div>
+                <div class="stat-box"><div>المصروفات</div><div class="stat-value">${formatMoney(expTotal)}</div></div>
+                <div class="stat-box"><div>صافي الربح</div><div class="stat-value">${formatMoney(sales - expTotal)}</div></div>
+            </div>
+        `;
+    }
+
+    function showDailyReport() {
+        let date = document.getElementById('dayReport').value;
+        let dayInv = invoices.filter(i => i.date === date);
+        let dayExp = expenses.filter(e => e.date === date);
+        let sales = dayInv.reduce((s,i) => s + i.amount, 0);
+        let expTotal = dayExp.reduce((s,e) => s + e.amount, 0);
+        document.getElementById('dailyReport').innerHTML = `
+            <div class="stats">
+                <div class="stat-box"><div>المبيعات</div><div class="stat-value">${formatMoney(sales)}</div></div>
+                <div class="stat-box"><div>المصروفات</div><div class="stat-value">${formatMoney(expTotal)}</div></div>
+                <div class="stat-box"><div>صافي الربح</div><div class="stat-value">${formatMoney(sales - expTotal)}</div></div>
+            </div>
+        `;
+    }
+
+    // النسخ الاحتياطي
+    function backupData() {
+        let data = { invoices, expenses };
+        let blob = new Blob([JSON.stringify(data)], {type: 'application/json'});
+        let a = document.createElement('a');
+        a.href = URL.createObjectURL(blob);
+        a.download = `workshop_${getToday()}.json`;
+        a.click();
+        showToast('تم تصدير البيانات');
+    }
+
+    document.getElementById('restoreFile')?.addEventListener('change', e => {
+        let file = e.target.files[0];
+        if(!file) return;
+        let r = new FileReader();
+        r.onload = ev => {
+            try {
+                let d = JSON.parse(ev.target.result);
+                if(d.invoices) invoices = d.invoices;
+                if(d.expenses) expenses = d.expenses;
+                saveAll();
+                updateDashboard();
+                showInvoices();
+                showExpenses();
+                showToast('تم استيراد البيانات');
+            } catch(err) { alert('ملف غير صالح'); }
+        };
+        r.readAsText(file);
+    });
+
+    function deleteAll() {
+        if(confirm('⚠️ هل أنت متأكد؟ سيتم مسح جميع البيانات نهائياً!')) {
+            invoices = [];
+            expenses = [];
+            saveAll();
+            updateDashboard();
+            showInvoices();
+            showExpenses();
+            showToast('تم مسح جميع البيانات');
+        }
+    }
+
+    // النوافذ
+    function openInvoiceModal() { document.getElementById('invoiceModal').classList.add('active'); document.getElementById('invDate').value = getToday(); }
+    function closeInvoiceModal() { document.getElementById('invoiceModal').classList.remove('active'); }
+    function openExpenseModal() { document.getElementById('expenseModal').classList.add('active'); document.getElementById('expDate').value = getToday(); }
+    function closeExpenseModal() { document.getElementById('expenseModal').classList.remove('active'); }
+    function showQuickMenu() { document.getElementById('quickMenu').classList.add('active'); }
+    function closeQuickMenu() { document.getElementById('quickMenu').classList.remove('active'); }
+
+    window.onclick = e => { if(e.target.classList?.contains('modal')) e.target.classList.remove('active'); };
+    
+    // تشغيل
+    document.getElementById('monthReport').value = getToday().slice(0,7);
+    document.getElementById('dayReport').value = getToday();
+    updateDashboard();
+    showInvoices();
+    showExpenses();
+</script>
+</body>
+</html>
